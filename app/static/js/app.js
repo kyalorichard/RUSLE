@@ -41,20 +41,20 @@ function initializeMap() {
     
     // Add base layers
     const baseLayers = {
-        'CartoDB Positron': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-        }),
         'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
         }),
         'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri'
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 19
         })
     };
-    
-    baseLayers['CartoDB Positron'].addTo(state.map);
-    
-    // Add layer control for base maps
+
+    // Use OpenStreetMap as the default basemap; no CARTO API key is required.
+    baseLayers['OpenStreetMap'].addTo(state.map);
+
+        // Add layer control for base maps
     L.control.layers(baseLayers, {}, { position: 'topright' }).addTo(state.map);
 }
 

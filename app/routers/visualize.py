@@ -160,10 +160,12 @@ async def get_folium_map(
         center = [centroid[1], centroid[0]]
         
         # Create base map
+        # OpenStreetMap is the default basemap; this avoids CARTO API-key
+        # requirements in the generated Folium results viewer.
         m = folium.Map(
             location=center,
             zoom_start=9,
-            tiles='cartodbpositron'
+            tiles='OpenStreetMap'
         )
         
         # Add EE tile layers
