@@ -1,8 +1,7 @@
-"""
-Main FastAPI application entry point.
-"""
+"""Main FastAPI application entry point."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -11,51 +10,42 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.routers import upload, process, visualize
-from app.services.gee_service import initialize_earth_engine
+from app.services.gee_service import initialize_earth_engine, is_gee_initialized
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan events."""
-    # Startup
     logger.info("Starting RUSLE Web Application...")
     settings.ensure_directories()
-
-    # Initialize Google Earth Engine
     try:
         initialize_earth_engine(settings.gee_project)
-        logger.info("Google Earth Engine initialized successfully")
-    except Exception as e:
-        logger.warning(f"GEE initialization failed: {e}. Some features may be unavailable.")
-
+        logger.info("Google Earth Engine initialized successfully.")
+    except Exception as exc:
+        # Keep the API available so its health endpoint and diagnostics remain
+        # accessible. GEE-dependent analysis routes should report unavailable.
+        logger.error("GEE initialization failed: %s", exc)
     yield
-
-    # Shutdown
     logger.info("Shutting down RUSLE Web Application...")
 
 
-# Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="Web application for calculating soil loss using the Revised Universal Soil Loss Equation (RUSLE)",
+    description=(
+        "Web application for calculating soil loss using the "
+        "Revised Universal Soil Loss Equation (RUSLE)"
+    ),
     lifespan=lifespan,
 )
 
-# Mount static files
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
-
-# Setup templates
 templates = Jinja2Templates(directory=str(settings.templates_dir))
-
-# Include routers
 app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(process.router, prefix="/api", tags=["process"])
 app.include_router(visualize.router, prefix="/api", tags=["visualize"])
@@ -63,27 +53,30 @@ app.include_router(visualize.router, prefix="/api", tags=["visualize"])
 
 @app.get("/")
 async def root():
-    """Redirect to the main application page."""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/app")
 
 
 @app.get("/app")
 async def main_page(request: Request):
-    """Render the main application page."""
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={
-            "title": settings.app_name
-        }
+        context={"title": settings.app_name},
     )
 
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "version": settings.app_version}
+    # Do not fail Render's process health check solely because GEE credentials
+    # are misconfigured; expose GEE status separately for diagnosis.
+    gee_ok = is_gee_initialized()
+    return {
+        "status": "healthy",
+        "version": settings.app_version,
+        "gee_initialized": gee_ok,
+        "gee_status": "ready" if gee_ok else "unavailable",
+    }
 
 
 if __name__ == "__main__":
@@ -91,6 +84,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=settings.debug
+        port=int(os.environ.get("PORT", "10000")),
+        reload=settings.debug,
+        workers=1,
     )

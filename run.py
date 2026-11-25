@@ -1,52 +1,33 @@
 #!/usr/bin/env python
-"""
-RUSLE Web Application Entry Point.
-
-Usage:
-    python run.py [--host HOST] [--port PORT] [--reload]
-    
-Options:
-    --host HOST     Host to bind to (default: 0.0.0.0)
-    --port PORT     Port to bind to (default: 8000)
-    --reload        Enable auto-reload for development
-"""
+"""Render-compatible RUSLE API entry point."""
 
 import argparse
+import os
 import sys
 
 
 def main():
+    render_port = int(os.environ.get("PORT", "10000"))
     parser = argparse.ArgumentParser(description="Run the RUSLE web application")
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
-    parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
-    
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=render_port)
+    parser.add_argument("--reload", action="store_true")
     args = parser.parse_args()
-    
+
     try:
         import uvicorn
     except ImportError:
-        print("Error: uvicorn is not installed. Run: uv pip install uvicorn")
+        print("Error: uvicorn is not installed.")
         sys.exit(1)
-    
-    print(f"""
-╔══════════════════════════════════════════════════════════════════╗
-║                 RUSLE Soil Loss Calculator                       ║
-║                      Web Application                             ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Starting server at http://{args.host}:{args.port}                          ║
-║  Open http://localhost:{args.port}/app in your browser                 ║
-║                                                                  ║
-║  Press Ctrl+C to stop                                            ║
-╚══════════════════════════════════════════════════════════════════╝
-    """)
-    
+
+    print(f"Starting RUSLE server on {args.host}:{args.port}", flush=True)
     uvicorn.run(
         "app.main:app",
         host=args.host,
         port=args.port,
         reload=args.reload,
-        log_level="info"
+        workers=1,
+        log_level="info",
     )
 
 
